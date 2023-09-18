@@ -10,6 +10,7 @@ class Lesson(models.Model):
     description = models.TextField(verbose_name='description')
     video_url = models.URLField(verbose_name='video URL', **NULLABLE)
     courses = models.ManyToManyField(Course)
+    owner = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True)
 
     def __str__(self):
         return (f'{self.name}'

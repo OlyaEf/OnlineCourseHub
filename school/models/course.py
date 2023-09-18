@@ -8,6 +8,7 @@ class Course(models.Model):
     preview = models.ImageField(verbose_name='preview', **NULLABLE)
     description = models.TextField(verbose_name='description')
     lessons = models.ManyToManyField('Lesson')
+    owner = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True)
 
     def __str__(self):
         return (f'{self.name}'
