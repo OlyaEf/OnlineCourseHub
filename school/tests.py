@@ -8,11 +8,10 @@ from users.models import User  # Импортируйте модель User, е�
 
 class LessonTestCase(APITestCase):
     def setUp(self):
-        # Создайте тестового пользователя (или используйте существующего)
+        # Тестовый пользователь
         self.user = User.objects.create(
             email='test@example.com',
             password='testpassword',
-            # Добавьте другие необходимые поля пользователя
         )
         # Аутентифицируйте пользователя
         self.client.force_authenticate(user=self.user)
@@ -24,10 +23,10 @@ class LessonTestCase(APITestCase):
         # Данные урока, которые будут отправлены в POST-запросе
         lesson_data = {
             'name': 'Test Lesson',
-            'preview': None,  # Замените на данные для изображения, если необходимо
+            'preview': None,
             'description': 'This is a test lesson.',
-            'video_url': 'https://example.com/test_video',
-            'courses': [],  # Замените на список курсов, к которым привязан урок
+            'video_url': 'https://youtube.com',
+            'courses': [],
             'owner': self.user.id,  # ID владельца урока
         }
 
