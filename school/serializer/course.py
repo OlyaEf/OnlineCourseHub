@@ -1,12 +1,14 @@
 from rest_framework import serializers
 
-from school.models.course import Course
+from school.models.course import Course, CourseSubscription
 from school.models.lesson import Lesson
+from school.validators import ValidateYoutubeLinks
 
 
 class CourseSerializer(serializers.ModelSerializer):
     lessons = serializers.PrimaryKeyRelatedField(queryset=Lesson.objects.all(), many=True)
     lessons_count = serializers.SerializerMethodField()
+    is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -14,3 +16,16 @@ class CourseSerializer(serializers.ModelSerializer):
 
     def get_lessons_count(self, obj):
         return obj.lessons.count()
+
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            # Проверяем, подписан ли текущий пользователь на данный курс
+            return CourseSubscription.objects.filter(user=request.user, course=obj, is_active=True).exists()
+        return False  # Если пользователь не аутентифицирован, считаем, что он не подписан
+
+
+class CourseSubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CourseSubscription
+        fields = '__all__'

@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 from constants import NULLABLE
 
@@ -17,6 +18,21 @@ class Course(models.Model):
     class Meta:
         verbose_name = 'Course'
         verbose_name_plural = 'Courses'
+
+
+class CourseSubscription(models.Model):
+    is_active = models.BooleanField(default=True, verbose_name='is_active')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True, related_name='subscriptions')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, null=True, related_name='curs_subsections')
+    subscribed_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return self.is_active
+
+    class Meta:
+        verbose_name = 'subscriptions'
+        verbose_name_plural = 'subscriptions'
+
 
 
 
