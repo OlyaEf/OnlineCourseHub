@@ -21,3 +21,4 @@ urlpatterns = [
     path('courses/<int:pk>/subscribe/', CourseSubscribeAPIView.as_view(), name='course-subscribe'),
     path('courses/<int:pk>/unsubscribe/', CourseUnsubscribeAPIView.as_view(), name='course-unsubscribe'),
 ] + router.urls
+

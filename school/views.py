@@ -1,5 +1,5 @@
 from rest_framework import viewsets, generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
 from school.models.course import Course, CourseSubscription
@@ -17,7 +17,8 @@ class CourseViewSet(viewsets.ModelViewSet):
 
 class LessonCreateAPIView(generics.CreateAPIView):
     serializer_class = LessonSerializer
-    permission_classes = [IsOwner]  # Применяем разрешения
+    # permission_classes = [IsOwner]  # Применяем разрешения
+    permission_classes = [AllowAny]  # Применяем разрешения
 
 
 class LessonListAPIView(generics.ListAPIView):
@@ -47,6 +48,9 @@ class LessonDestroyAPIView(generics.DestroyAPIView):
 class CourseSubscribeAPIView(generics.CreateAPIView):
     serializer_class = CourseSubscriptionSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Course.objects.all()
 
     def create(self, request, *args, **kwargs):
         course = self.get_object()  # Получаем объект курса из URL

@@ -6,7 +6,7 @@ from school.validators import ValidateYoutubeLinks
 
 
 class LessonSerializer(serializers.ModelSerializer):
-    # courses = CourseSerializer(many=True)
+    courses = CourseSerializer(many=True, read_only=True)
     validators = [ValidateYoutubeLinks(field='video_url')]
 
     class Meta:

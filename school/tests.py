@@ -2,8 +2,9 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from django.urls import reverse
 
+from school.models.course import Course, CourseSubscription
 from school.models.lesson import Lesson
-from users.models import User  # Импортируйте модель User, если она находится в users.models
+from users.models import User
 
 
 class LessonTestCase(APITestCase):
@@ -11,29 +12,150 @@ class LessonTestCase(APITestCase):
         # Тестовый пользователь
         self.user = User.objects.create(
             email='test@example.com',
-            password='testpassword',
+            is_active=True
         )
-        # Аутентифицируйте пользователя
-        self.client.force_authenticate(user=self.user)
+        self.user.set_password('test')
+        self.user.save()
+
+        # Получаем JWT-токен для аутентификации
+        get_token = reverse('users:token_obtain_pair')
+        token_response = self.client.post(path=get_token, data={'email': 'test@example.com', 'password': 'test'})
+        token = token_response.json().get('access')
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.headers = {'HTTP_AUTHORIZATION': f'Bearer {token}'}
+
+        self.course = Course.objects.create(
+            name="test_course",
+        )
+
+        # Создаем тестовый урок
+        self.lesson = Lesson.objects.create(
+            name="Test Lesson",
+            description="This is a test lesson",
+            owner=self.user
+        )
 
     def test_create_lesson(self):
-        # URL для создания урока
-        url = reverse('lesson-create')
-
-        # Данные урока, которые будут отправлены в POST-запросе
-        lesson_data = {
-            'name': 'Test Lesson',
-            'preview': None,
-            'description': 'This is a test lesson.',
-            'video_url': 'https://youtube.com',
-            'courses': [],
-            'owner': self.user.id,  # ID владельца урока
+        """
+        Тест операции создания (create) проверки создания уроков
+        """
+        data = {
+            "name": "test",
+            "course": 1,
+            "link": "https://youtube.com",
+            "description": "test description"
         }
+        create_lesson = reverse('school:lesson-create')
+        response = self.client.post(create_lesson, data, format='json', **self.headers)
+        print(response.json())
 
-        response = self.client.post(url, lesson_data, format='json')
-
-        # Проверка статуса ответа (ожидаем статус 201 CREATED)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.json()['name'], data['name'])
 
-        # Проверка создания урока в базе данных
-        self.assertTrue(Lesson.objects.filter(name='Test Lesson').exists())
+    def test_retrieve_lesson(self):
+        """
+        Тест операции чтения (retrieve) урока
+        """
+        retrieve_url = reverse('school:lesson-get', args=[self.lesson.id])
+        response = self.client.get(retrieve_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], self.lesson.name)
+
+    def test_update_lesson(self):
+        # Тест операции обновления (update) урока
+        update_url = reverse('school:lesson-update', args=[self.lesson.id])
+        updated_data = {
+            "name": "Updated Lesson",
+            "description": "This is an updated lesson",
+        }
+        response = self.client.patch(update_url, updated_data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.name, updated_data['name'])
+        self.assertEqual(self.lesson.description, updated_data['description'])
+
+    def test_delete_lesson(self):
+        # Тест операции удаления (delete) урока
+        delete_url = reverse('school:lesson-destroy', args=[self.lesson.id])
+        response = self.client.delete(delete_url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Lesson.objects.filter(id=self.lesson.id).exists())
+
+
+class CourseSubscriptionTestCase(APITestCase):
+    def setUp(self):
+        # Тестовый пользователь
+        self.user = User.objects.create(
+            email='test@example.com',
+            is_active=True
+        )
+        self.user.set_password('test')
+        self.user.save()
+
+        # Получаем JWT-токен для аутентификации
+        get_token = reverse('users:token_obtain_pair')
+        token_response = self.client.post(path=get_token, data={'email': 'test@example.com', 'password': 'test'})
+        token = token_response.json().get('access')
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.headers = {'HTTP_AUTHORIZATION': f'Bearer {token}'}
+
+        self.course = Course.objects.create(
+            name="test_course",
+        )
+
+    def test_subscribe_to_course(self):
+        """
+        Тест операции создания подписки на курс
+        """
+        subscribe_url = reverse('school:course-subscribe', args=[self.course.id])
+        response = self.client.post(subscribe_url, {}, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['detail'], "Подписка успешно установлена.")
+
+    def test_subscribe_to_course_twice(self):
+        """
+        Тест, чтобы проверить, что пользователь не может подписаться на один курс дважды
+        """
+        CourseSubscription.objects.create(user=self.user, course=self.course)  # Создаем подписку
+        subscribe_url = reverse('school:course-subscribe', args=[self.course.id])
+        response = self.client.post(subscribe_url, {}, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'], "Вы уже подписаны на этот курс.")
+
+
+class CourseUnsubscribeTestCase(APITestCase):
+    def setUp(self):
+        # Тестовый пользователь
+        self.user = User.objects.create(
+            email='test@example.com',
+            is_active=True
+        )
+        self.user.set_password('test')
+        self.user.save()
+
+        # Получаем JWT-токен для аутентификации
+        get_token = reverse('users:token_obtain_pair')
+        token_response = self.client.post(path=get_token, data={'email': 'test@example.com', 'password': 'test'})
+        token = token_response.json().get('access')
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.headers = {'HTTP_AUTHORIZATION': f'Bearer {token}'}
+
+        self.course = Course.objects.create(
+            name="test_course",
+        )
+        self.course_subscription = CourseSubscription.objects.create(user=self.user, course=self.course)
+
+    def test_unsubscribe_from_course(self):
+        """
+        Тест операции отписки от курса
+        """
+        unsubscribe_url = reverse('school:course-unsubscribe', args=[self.course.id])
+        response = self.client.delete(unsubscribe_url, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(CourseSubscription.objects.filter(id=self.course_subscription.id, is_active=True).exists())
