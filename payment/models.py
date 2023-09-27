@@ -16,6 +16,7 @@ class Payment(models.Model):
     paid_lesson = models.ForeignKey('school.Lesson', on_delete=models.CASCADE, verbose_name='paid_lesson', **NULLABLE)
     payment_amount = models.IntegerField(verbose_name='payment_amount')
     payment_method = models.CharField(max_length=20, choices=[(tag.name, tag.value) for tag in PaymentMethod])
+    stripe_id = models.CharField(max_length=300, verbose_name='stripe_id', **NULLABLE)
 
     def __str__(self):
         return (f'{self.user}'
