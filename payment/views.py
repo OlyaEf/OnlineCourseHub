@@ -4,7 +4,7 @@ import stripe
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import generics, status
+from rest_framework import generics, status, serializers
 from rest_framework.filters import OrderingFilter
 from rest_framework.views import APIView
 
@@ -26,28 +26,29 @@ class PaymentCreateAPIView(generics.CreateAPIView):
     serializer_class = PaymentSerializer
     queryset = Payment.objects.all()
 
-    def create(self, request, *args, **kwargs):
-        payment_data = request.data
-        payment_serializer = self.get_serializer(data=payment_data)
+    def perform_create(self, serializer):
+        # получаем поля из сериализатора
+        lesson = serializer.validated_data.get('paid_lesson')
+        course = serializer.validated_data.get('paid_course')
 
-        if payment_serializer.is_valid():
-            payment_serializer.save()
+        # проверяем, передано ли в тело запроса курс или урок для оплаты
+        if not lesson and not course:
+            raise serializers.ValidationError({
+                'message_error': 'Необходимо заполнить одно из полей "lesson" или "course"'
+            })
 
-            stripe_handler = PaymentService()
-            try:
-                stripe_id = stripe_handler.create_payment(
-                    user=request.user,
-                    amount=payment_data.get('payment_amount'),
-                    payment_method=payment_data.get('payment_method')
-                ).id
+        serializer.save()
+        stripe_handler = PaymentService()
 
-                payment_instance = payment_serializer.instance
-                payment_instance.stripe_id = stripe_id
-                payment_instance.save()
+        stripe_response = stripe_handler.create_payment(
+            user=self.request.user,
+            amount=serializer.validated_data.get('payment_amount'),
+        )
+        stripe_id = stripe_response.client_secret
 
-                return Response(payment_serializer.data, status=status.HTTP_201_CREATED)
-            except PaymentError as e:
-                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        payment_instance = serializer.instance
+        payment_instance.stripe_id = stripe_id
+        payment_instance.save()
 
 
 class PaymentRetrieveAPIView(APIView):

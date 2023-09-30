@@ -11,18 +11,18 @@ class PaymentService:
     def __init__(self):
         self.stripe_api_key = os.getenv('STRIPE_SECRET_KEY')
 
-    def create_payment(self, user, amount, payment_method):
+    def create_payment(self, user, amount):
         try:
             stripe.api_key = self.stripe_api_key
             payment_intent = stripe.PaymentIntent.create(
                 amount=amount,
                 currency='usd',
-                payment_method_types=[payment_method],
+                automatic_payment_method={"enabled": True},
                 description=f'Payment for user: {user}'
             )
             return payment_intent
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            raise PaymentError(str(e))
 
     def save_payment(self, user, amount, payment_method, stripe_id):
         payment = Payment.objects.create(
