@@ -7,11 +7,10 @@ from users.models import User
 
 
 class PaymentSerializer(serializers.ModelSerializer):
-    # user = serializers.StringRelatedField()
-    user = serializers.HiddenField(
-        default=serializers.CurrentUserDefault()
-    )
-    stripe = serializers.SerializerMethodField()
+    user = serializers.StringRelatedField()
+    # user = serializers.HiddenField(
+    #     default=serializers.CurrentUserDefault()
+    # )
 
     class Meta:
         model = Payment
@@ -34,4 +33,3 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
             'payment_method',
             'user'
         ]
-

@@ -4,13 +4,13 @@ import stripe
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import generics, status, serializers
+from rest_framework import generics, status
 from rest_framework.filters import OrderingFilter
 from rest_framework.views import APIView
 
-from payment.models import Payment
+from payment.models import Payment, PaymentMethod
 from payment.serializer import PaymentSerializer
-from payment.services import PaymentService, PaymentError
+from payment.services import PaymentService
 
 
 class PaymentListAPIView(generics.ListAPIView):
@@ -27,28 +27,24 @@ class PaymentCreateAPIView(generics.CreateAPIView):
     queryset = Payment.objects.all()
 
     def perform_create(self, serializer):
-        # получаем поля из сериализатора
-        lesson = serializer.validated_data.get('paid_lesson')
-        course = serializer.validated_data.get('paid_course')
+        payment_method = serializer.validated_data.get('payment_method')
+        user = self.request.user
+        amount = serializer.validated_data.get('payment_amount')
 
-        # проверяем, передано ли в тело запроса курс или урок для оплаты
-        if not lesson and not course:
-            raise serializers.ValidationError({
-                'message_error': 'Необходимо заполнить одно из полей "lesson" или "course"'
-            })
-
-        serializer.save()
         stripe_handler = PaymentService()
-
-        stripe_response = stripe_handler.create_payment(
-            user=self.request.user,
-            amount=serializer.validated_data.get('payment_amount'),
+        payment = stripe_handler.create_and_save_payment(
+            user=user,
+            amount=amount,
+            payment_method=payment_method
         )
-        stripe_id = stripe_response.client_secret
 
-        payment_instance = serializer.instance
-        payment_instance.stripe_id = stripe_id
-        payment_instance.save()
+        if payment_method == PaymentMethod.BANK_TRANSFER:
+            # Возвращаем клиенту client_secret для оплаты кредитной картой
+            return Response({"client_secret": payment.stripe_id})
+        elif payment_method == PaymentMethod.CASH:
+            # Возвращаем клиенту подтверждение оплаты наличными
+            return Response({"message": "Оплата наличными зарегистрирована успешно."}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PaymentRetrieveAPIView(APIView):
@@ -57,10 +53,13 @@ class PaymentRetrieveAPIView(APIView):
             payment = get_object_or_404(Payment, pk=pk)
             stripe_id = payment.stripe_id
 
-            stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
-            payment_intent = stripe.PaymentIntent.retrieve(stripe_id)
+            if stripe_id is not None:
+                stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+                payment_intent = stripe.PaymentIntent.retrieve(stripe_id)
 
-            return Response(payment_intent, status=status.HTTP_200_OK)
+                return Response(payment_intent, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "PaymentIntent не существует для этого платежа."},
+                                status=status.HTTP_400_BAD_REQUEST)
         except Payment.DoesNotExist:
-            return Response({"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
-
+            return Response({"error": "Платеж не найден"}, status=status.HTTP_404_NOT_FOUND)
