@@ -14,7 +14,7 @@ class PaymentService:
     def create_payment(self, user, amount, payment_method):
         try:
             stripe.api_key = self.stripe_api_key
-            if payment_method == PaymentMethod.BANK_TRANSFER:
+            if payment_method == PaymentMethod.BANK_TRANSFER.name:
                 payment_intent = stripe.PaymentIntent.create(
                     amount=amount,
                     currency='usd',
@@ -22,7 +22,7 @@ class PaymentService:
                     description=f'Payment for user: {user}'
                 )
                 return payment_intent.id
-            elif payment_method == PaymentMethod.CASH:
+            elif payment_method == PaymentMethod.CASH.name:
                 payment = Payment.objects.create(
                     user=user,
                     payment_amount=amount,

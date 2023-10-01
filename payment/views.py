@@ -38,10 +38,10 @@ class PaymentCreateAPIView(generics.CreateAPIView):
             payment_method=payment_method
         )
 
-        if payment_method == PaymentMethod.BANK_TRANSFER:
+        if payment_method == PaymentMethod.BANK_TRANSFER.name:
             # Возвращаем клиенту client_secret для оплаты кредитной картой
             return Response({"client_secret": payment.stripe_id})
-        elif payment_method == PaymentMethod.CASH:
+        elif payment_method == PaymentMethod.CASH.name:
             # Возвращаем клиенту подтверждение оплаты наличными
             return Response({"message": "Оплата наличными зарегистрирована успешно."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -59,7 +59,7 @@ class PaymentRetrieveAPIView(APIView):
 
                 return Response(payment_intent, status=status.HTTP_200_OK)
             else:
-                return Response({"error": "PaymentIntent не существует для этого платежа."},
+                return Response({"error": "Для этого платежа не существует Stripe ID."},
                                 status=status.HTTP_400_BAD_REQUEST)
         except Payment.DoesNotExist:
             return Response({"error": "Платеж не найден"}, status=status.HTTP_404_NOT_FOUND)
