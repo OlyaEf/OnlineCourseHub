@@ -26,24 +26,37 @@ class PaymentCreateAPIView(generics.CreateAPIView):
     serializer_class = PaymentSerializer
     queryset = Payment.objects.all()
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         payment_method = serializer.validated_data.get('payment_method')
         user = self.request.user
         amount = serializer.validated_data.get('payment_amount')
+        paid_course_id = serializer.validated_data.get('paid_course_id')
 
         stripe_handler = PaymentService()
         payment = stripe_handler.create_and_save_payment(
             user=user,
             amount=amount,
-            payment_method=payment_method
+            payment_method=payment_method,
+            paid_course_id=paid_course_id
         )
 
         if payment_method == PaymentMethod.BANK_TRANSFER.name:
             # Возвращаем клиенту client_secret для оплаты кредитной картой
-            return Response({"client_secret": payment.stripe_id})
+            response_data = {
+                "stripe_id": payment.stripe_id,
+                "id": payment.id,
+                "payment_method": payment.payment_method,
+                "paid_course_id": payment.paid_course_id,
+                "payment_amount": payment.payment_amount
+            }
+            return Response(response_data, status=status.HTTP_201_CREATED)
         elif payment_method == PaymentMethod.CASH.name:
             # Возвращаем клиенту подтверждение оплаты наличными
-            return Response({"message": "Оплата наличными зарегистрирована успешно."}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"message": "Оплата наличными зарегистрирована успешно."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

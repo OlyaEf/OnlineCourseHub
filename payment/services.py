@@ -11,7 +11,7 @@ class PaymentService:
     def __init__(self):
         self.stripe_api_key = os.getenv('STRIPE_SECRET_KEY')
 
-    def create_payment(self, user, amount, payment_method):
+    def create_payment(self, user, amount, payment_method, paid_course_id=None):
         try:
             stripe.api_key = self.stripe_api_key
             if payment_method == PaymentMethod.BANK_TRANSFER.name:
@@ -19,7 +19,8 @@ class PaymentService:
                     amount=amount,
                     currency='usd',
                     payment_method_types=['card'],
-                    description=f'Payment for user: {user}'
+                    description=f'Payment for user: {user}',
+                    paid_course_id=paid_course_id
                 )
                 return payment_intent.id
             elif payment_method == PaymentMethod.CASH.name:
@@ -32,20 +33,21 @@ class PaymentService:
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    def create_and_save_payment(self, user, amount, payment_method):
-        stripe_id = self.create_payment(user, amount, payment_method)
+    def create_and_save_payment(self, user, amount, payment_method, paid_course_id=None):
+        stripe_id = self.create_payment(user, amount, payment_method, paid_course_id)
         if stripe_id is not None:
-            payment = self.save_payment(user, amount, payment_method, stripe_id)
+            payment = self.save_payment(user, amount, payment_method, stripe_id, paid_course_id)
             return payment
         else:
             return None
 
-    def save_payment(self, user, amount, payment_method, stripe_id):
+    def save_payment(self, user, amount, payment_method, stripe_id, paid_course_id=None):
         payment = Payment.objects.create(
             user=user,
             payment_amount=amount,
             payment_method=payment_method,
             stripe_id=stripe_id,
+            paid_course_id=paid_course_id
         )
         return payment
 
