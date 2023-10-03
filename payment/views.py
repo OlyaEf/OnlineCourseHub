@@ -33,30 +33,30 @@ class PaymentCreateAPIView(generics.CreateAPIView):
         payment_method = serializer.validated_data.get('payment_method')
         user = self.request.user
         amount = serializer.validated_data.get('payment_amount')
-        paid_course_id = serializer.validated_data.get('paid_course_id')
 
         stripe_handler = PaymentService()
         payment = stripe_handler.create_and_save_payment(
             user=user,
             amount=amount,
-            payment_method=payment_method,
-            paid_course_id=paid_course_id
+            payment_method=payment_method
         )
 
+        headers = self.get_success_headers(serializer.data)
         if payment_method == PaymentMethod.BANK_TRANSFER.name:
-            # Возвращаем клиенту client_secret для оплаты кредитной картой
             response_data = {
                 "stripe_id": payment.stripe_id,
                 "id": payment.id,
                 "payment_method": payment.payment_method,
-                "paid_course_id": payment.paid_course_id,
                 "payment_amount": payment.payment_amount
             }
-            return Response(response_data, status=status.HTTP_201_CREATED)
+            return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
         elif payment_method == PaymentMethod.CASH.name:
-            # Возвращаем клиенту подтверждение оплаты наличными
-            return Response(
-                {"message": "Оплата наличными зарегистрирована успешно."}, status=status.HTTP_201_CREATED)
+            response_data = {
+                "id": payment.id,
+                "payment_method": payment.payment_method,
+                "payment_amount": payment.payment_amount
+            }
+            return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
