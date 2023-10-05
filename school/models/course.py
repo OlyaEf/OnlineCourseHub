@@ -10,6 +10,7 @@ class Course(models.Model):
     description = models.TextField(verbose_name='description')
     lessons = models.ManyToManyField('Lesson')
     owner = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True)
+    last_updated = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return (f'{self.name}'
@@ -27,9 +28,10 @@ class CourseSubscription(models.Model):
     subscribed_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
-        return self.is_active
+        return f'{self.user}: {self.course}'
 
     class Meta:
+        unique_together = [['user', 'course']]
         verbose_name = 'subscriptions'
         verbose_name_plural = 'subscriptions'
 
